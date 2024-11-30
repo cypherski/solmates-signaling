@@ -1,0 +1,44 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  environment = { NODE_VERSION = "20" }
+
+[functions]
+  directory = "server"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Origin, X-Requested-With, Content-Type, Accept"
+    Access-Control-Allow-Credentials = "true"
+    Feature-Policy = "camera *; microphone *; display-capture *"
+    Permissions-Policy = "camera=*, microphone=*, display-capture=*"
+    Content-Security-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' *.netlify.app *.supabase.co; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' wss: https: data: blob:;"
+
+[build.environment]
+  VITE_SUPABASE_URL = "${VITE_SUPABASE_URL}"
+  VITE_SUPABASE_ANON_KEY = "${VITE_SUPABASE_ANON_KEY}"
+  VITE_SOCKET_URL = "${VITE_SOCKET_URL}"
+  VITE_SOLANA_NETWORK = "${VITE_SOLANA_NETWORK}"
+  VITE_SOLANA_RPC_HOST = "${VITE_SOLANA_RPC_HOST}"
+  VITE_ENCRYPTION_KEY = "${VITE_ENCRYPTION_KEY}"

@@ -1,0 +1,54 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  walletAddress String    @unique
+  username      String    @unique
+  displayName   String?
+  createdAt     DateTime  @default(now())
+  lastSeen      DateTime  @default(now())
+  isOnline      Boolean   @default(false)
+  
+  // Relationships
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+  videoSessions    VideoSession[]
+  
+  @@index([walletAddress])
+  @@index([username])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  createdAt   DateTime @default(now())
+  senderId    String
+  receiverId  String
+  status      String   @default("sent") // sent, delivered, read
+  
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model VideoSession {
+  id        String   @id @default(cuid())
+  userId    String
+  startTime DateTime @default(now())
+  endTime   DateTime?
+  duration  Int?     // in seconds
+  
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+}
