@@ -15,3 +15,13 @@ services:
       - key: PORT
         value: 10000
     autoDeploy: true
+    headers:
+      - path: /*
+        name: Access-Control-Allow-Origin
+        value: "https://solmates.club, https://www.solmates.club"
+      - path: /*
+        name: Access-Control-Allow-Methods
+        value: "GET, POST, OPTIONS"
+      - path: /*
+        name: Access-Control-Allow-Headers
+        value: "Content-Type"

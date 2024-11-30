@@ -17,39 +17,35 @@ app.get('/health', (req, res) => {
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
+    origin: process.env.NODE_ENV === 'production'
       ? ['https://solmates.club', 'https://www.solmates.club']
       : 'http://localhost:5173',
     methods: ['GET', 'POST'],
     credentials: true
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000
+  }
 });
 
-// Keep track of users
-const waitingUsers = new Map(); // walletAddress -> socket
-const connectedPairs = new Map(); // socketId -> socketId
+// Keep track of waiting users and connected pairs
+const waitingUsers = new Map();
+const connectedPairs = new Map();
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('ready', (data) => {
-    if (!data?.walletAddress) {
-      console.error('Invalid ready event - missing wallet address');
+    if (!data || !data.walletAddress) {
+      console.log('Invalid ready event - missing wallet address');
       return;
     }
 
-    console.log(`User ${data.walletAddress} is ready for matching`);
+    console.log(`User ${data.walletAddress} ready for matching`);
 
     // Don't add if already waiting
-    if (waitingUsers.has(data.walletAddress)) {
-      console.log(`User ${data.walletAddress} already waiting`);
-      return;
-    }
+    if (waitingUsers.has(data.walletAddress)) return;
 
     // Find a match if there are waiting users
-    const waitingUser = Array.from(waitingUsers.entries()).find(([addr]) => addr !== data.walletAddress);
+    const waitingUser = Array.from(waitingUsers.entries())
+      .find(([addr]) => addr !== data.walletAddress);
     
     if (waitingUser) {
       const [peerAddress, peerSocket] = waitingUser;
