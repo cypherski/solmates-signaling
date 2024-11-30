@@ -1,14 +1,10 @@
 # Dependencies
-node_modules
-package-lock.json
+node_modules/
 
 # Environment
 .env
-.env.local
-.env.*.local
 
 # Logs
-logs
 *.log
 npm-debug.log*
 
@@ -16,17 +12,10 @@ npm-debug.log*
 pids
 *.pid
 *.seed
-*.pid.lock
-
-# Build
-dist
-build
 
 # IDE
-.idea
-.vscode
-*.swp
-*.swo
+.vscode/
+.idea/
 
 # OS
 .DS_Store

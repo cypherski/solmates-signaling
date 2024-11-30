@@ -1,31 +1,50 @@
-import 'dotenv/config';
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import { config } from './config/index.js';
+import { SessionManager } from './services/SessionManager.js';
+import { MatchingService } from './services/MatchingService.js';
+import { SignalingService } from './services/SignalingService.js';
+import { setupSocketHandlers } from './handlers/socketHandlers.js';
+import { Logger } from './utils/logger.js';
 
-const getAllowedOrigins = () => {
-  if (process.env.ALLOWED_ORIGINS) {
-    return process.env.ALLOWED_ORIGINS.split(',');
-  }
-  return process.env.NODE_ENV === 'production'
-    ? ['https://solmates.club', 'https://www.solmates.club']
-    : 'http://localhost:5173';
-};
+const app = express();
+const httpServer = createServer(app);
+const logger = new Logger();
 
-export const config = {
-  port: process.env.PORT || 3001,
-  env: process.env.NODE_ENV || 'development',
-  cors: {
-    origin: getAllowedOrigins(),
-    methods: ['GET', 'POST'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
-  },
-  socket: {
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ['websocket'],
-    maxHttpBufferSize: 1e6 // 1 MB
-  },
-  session: {
-    cleanupInterval: 5 * 60 * 1000, // 5 minutes
-    maxInactiveTime: 5 * 60 * 1000  // 5 minutes
-  }
-};
+// Enable CORS for health checks
+app.use(cors());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
+const io = new Server(httpServer, {
+  cors: config.cors,
+  pingTimeout: config.socket.pingTimeout,
+  pingInterval: config.socket.pingInterval
+});
+
+const sessionManager = new SessionManager();
+const matchingService = new MatchingService(sessionManager, logger);
+const signalingService = new SignalingService(io, logger);
+
+// Cleanup inactive sessions periodically
+setInterval(() => {
+  sessionManager.cleanupInactiveSessions(config.session.maxInactiveTime);
+}, config.session.cleanupInterval);
+
+// Setup socket handlers
+io.on('connection', setupSocketHandlers(
+  io,
+  sessionManager,
+  matchingService,
+  signalingService,
+  logger
+));
+
+httpServer.listen(config.port, () => {
+  logger.info(`Signaling server running on port ${config.port}`);
+});
