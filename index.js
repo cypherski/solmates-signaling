@@ -9,7 +9,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? 'https://solmates.club'
+      ? '*'
       : 'http://localhost:5173',
     methods: ['GET', 'POST']
   }
@@ -22,9 +22,20 @@ const connectedPairs = new Map(); // socketId -> socketId
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  socket.on('ready', ({ walletAddress }) => {
+  socket.on('ready', (data) => {
+    if (!data || !data.walletAddress) {
+      console.error('Invalid ready event - missing wallet address');
+      return;
+    }
+
+    const walletAddress = data.walletAddress;
+    console.log(`User ${walletAddress} (${socket.id}) is ready for matching`);
+
     // Don't add if already waiting
-    if (waitingUsers.has(walletAddress)) return;
+    if (waitingUsers.has(walletAddress)) {
+      console.log(`User ${walletAddress} already waiting`);
+      return;
+    }
 
     // Find a match if there are waiting users
     const waitingUser = Array.from(waitingUsers.entries()).find(([addr]) => addr !== walletAddress);
@@ -37,23 +48,32 @@ io.on('connection', (socket) => {
       connectedPairs.set(socket.id, peerSocket.id);
       connectedPairs.set(peerSocket.id, socket.id);
 
+      console.log(`Matched users: ${walletAddress} <-> ${peerAddress}`);
+
       // Notify both peers
       socket.emit('matched', { peer: peerSocket.id, initiator: true });
       peerSocket.emit('matched', { peer: socket.id, initiator: false });
     } else {
       // Add to waiting list if no match found
       waitingUsers.set(walletAddress, socket);
+      console.log(`User ${walletAddress} added to waiting list`);
     }
   });
 
-  socket.on('signal', ({ signal, peer }) => {
-    const targetSocket = io.sockets.sockets.get(peer);
-    if (targetSocket) {
-      targetSocket.emit('signal', { signal });
+  socket.on('signal', ({ signal }) => {
+    const peerId = connectedPairs.get(socket.id);
+    if (peerId) {
+      const peerSocket = io.sockets.sockets.get(peerId);
+      if (peerSocket) {
+        console.log(`Forwarding signal from ${socket.id} to ${peerId}`);
+        peerSocket.emit('signal', { signal });
+      }
     }
   });
 
-  socket.on('next', ({ walletAddress }) => {
+  socket.on('next', () => {
+    console.log(`User ${socket.id} requesting next peer`);
+
     const currentPeer = connectedPairs.get(socket.id);
     if (currentPeer) {
       const peerSocket = io.sockets.sockets.get(currentPeer);
@@ -65,11 +85,13 @@ io.on('connection', (socket) => {
     }
 
     // Look for a new match
-    socket.emit('ready', { walletAddress });
+    socket.emit('ready');
   });
 
   socket.on('disconnect', () => {
-    // Clean up waiting list
+    console.log('User disconnected:', socket.id);
+    
+    // Clean up waiting list by checking all entries
     for (const [addr, sock] of waitingUsers.entries()) {
       if (sock.id === socket.id) {
         waitingUsers.delete(addr);
